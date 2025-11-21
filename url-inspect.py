@@ -207,7 +207,7 @@ def parse_absolute_url(url: str) -> ParseResult:
     return parsed
 
 
-def _build_netloc(
+def build_netloc(
         username: str,
         password: str,
         host: str,
@@ -246,7 +246,7 @@ def _build_netloc(
     return userinfo + hostport
 
 
-def _normalized_components(parsed: ParseResult) -> tuple[str, str, str, str, str, str]:
+def normalized_components(parsed: ParseResult) -> tuple[str, str, str, str, str, str]:
     """Return normalized URL components suitable for ``urlunparse``.
 
     Normalization rules
@@ -279,7 +279,7 @@ def _normalized_components(parsed: ParseResult) -> tuple[str, str, str, str, str
     if default_port is not None and port == default_port:
         port = None
 
-    netloc: str = _build_netloc(username=username, password=password, host=host, port=port)
+    netloc: str = build_netloc(username=username, password=password, host=host, port=port)
 
     path: str = parsed.path or "/"
     params: str = ""
@@ -311,7 +311,7 @@ def normalized_compact_url(parsed: ParseResult) -> str:
     str
         Normalized and compact URL string.
     """
-    scheme, netloc, path, params, query, fragment = _normalized_components(parsed)
+    scheme, netloc, path, params, query, fragment = normalized_components(parsed)
 
     # Common fast path for origin-only URLs.
     if (path == "" or path == "/") and not query and not fragment:
