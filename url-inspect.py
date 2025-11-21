@@ -3,7 +3,7 @@
 """
 Name: url-inspect.py
 Author: Nikita Neverov (BMTLab)
-Version: 1.0.0
+Version: 1.1.0
 Date: 2025-11-21
 License: MIT
 
@@ -59,7 +59,7 @@ from typing import Any
 from urllib.parse import ParseResult, parse_qsl, urlparse, urlunparse
 
 
-class AnsiColors:
+class TerminalColorScheme:
     """Container for ANSI color escape sequences.
 
     The actual values depend on whether colors are enabled.
@@ -94,7 +94,7 @@ class AnsiColors:
 
 
 @dataclass(frozen=True, slots=True)
-class UrlView:
+class UrlInspectionModel:
     """View model describing a parsed and normalized URL.
 
     Attributes
@@ -128,7 +128,7 @@ EXIT_NOT_URL: int = 2
 ERROR_URL_PREVIEW_LEN: int = 15
 
 
-def eprint(*args: Any) -> None:
+def print_stderr(*args: Any) -> None:
     """Print the given arguments to stderr.
 
     Parameters
@@ -140,13 +140,13 @@ def eprint(*args: Any) -> None:
     print(*args, file=sys.stderr)
 
 
-def preview_for_error(url: str, max_len: int = ERROR_URL_PREVIEW_LEN) -> str:
-    """Return a shortened preview of the URL for error messages.
+def generate_error_preview(text: str, max_len: int = ERROR_URL_PREVIEW_LEN) -> str:
+    """Return a shortened preview of the text (URL) for error messages.
 
     Parameters
     ----------
-    url : str
-        Full URL string.
+    text : str
+        Full string to preview.
     max_len : int, optional
         Maximum number of characters to include in the preview
         before appending ``"..."``. Defaults to ``ERROR_URL_PREVIEW_LEN``.
@@ -156,13 +156,13 @@ def preview_for_error(url: str, max_len: int = ERROR_URL_PREVIEW_LEN) -> str:
     str
         Preview string suitable for use in error messages.
     """
-    if len(url) <= max_len:
-        return url
+    if len(text) <= max_len:
+        return text
 
-    return f"{url[:max_len]}..."
+    return f"{text[:max_len]}..."
 
 
-def parse_absolute_url(url: str) -> ParseResult:
+def validate_and_parse_url(url: str) -> ParseResult:
     """Parse and validate an absolute URL.
 
     Validation rules (heuristic but strict for CLI use)
@@ -191,8 +191,8 @@ def parse_absolute_url(url: str) -> ParseResult:
         raise ValueError("URL is empty")
 
     # Single-pass check; short-circuits as soon as whitespace is found
-    for ch in url:
-        if ch.isspace():
+    for char in url:
+        if char.isspace():
             raise ValueError("URL must not contain whitespace")
 
     parsed: ParseResult = urlparse(url)
@@ -207,7 +207,7 @@ def parse_absolute_url(url: str) -> ParseResult:
     return parsed
 
 
-def build_netloc(
+def construct_network_location(
         username: str,
         password: str,
         host: str,
@@ -232,21 +232,23 @@ def build_netloc(
         Netloc string in the form ``"user:pass@host:port"``
         with individual parts omitted if not present.
     """
-    userinfo: str = ""
+    user_info: str = ""
     if username:
-        userinfo = username
+        user_info = username
         if password:
-            userinfo += f":{password}"
-        userinfo += "@"
+            user_info += f":{password}"
+        user_info += "@"
 
-    hostport: str = host
+    host_port: str = host
     if port is not None:
-        hostport = f"{host}:{port}"
+        host_port = f"{host}:{port}"
 
-    return userinfo + hostport
+    return user_info + host_port
 
 
-def normalized_components(parsed: ParseResult) -> tuple[str, str, str, str, str, str]:
+def extract_normalized_components(
+        parsed: ParseResult
+) -> tuple[str, str, str, str, str, str]:
     """Return normalized URL components suitable for ``urlunparse``.
 
     Normalization rules
@@ -279,7 +281,12 @@ def normalized_components(parsed: ParseResult) -> tuple[str, str, str, str, str,
     if default_port is not None and port == default_port:
         port = None
 
-    netloc: str = build_netloc(username=username, password=password, host=host, port=port)
+    netloc: str = construct_network_location(
+        username=username,
+        password=password,
+        host=host,
+        port=port
+    )
 
     path: str = parsed.path or "/"
     params: str = ""
@@ -289,7 +296,7 @@ def normalized_components(parsed: ParseResult) -> tuple[str, str, str, str, str,
     return scheme, netloc, path, params, query, fragment
 
 
-def normalized_compact_url(parsed: ParseResult) -> str:
+def create_normalized_url_string(parsed: ParseResult) -> str:
     """Return a normalized and compact representation of a URL.
 
     Combined behavior
@@ -311,7 +318,7 @@ def normalized_compact_url(parsed: ParseResult) -> str:
     str
         Normalized and compact URL string.
     """
-    scheme, netloc, path, params, query, fragment = normalized_components(parsed)
+    scheme, netloc, path, params, query, fragment = extract_normalized_components(parsed)
 
     # Common fast path for origin-only URLs.
     if (path == "" or path == "/") and not query and not fragment:
@@ -323,7 +330,7 @@ def normalized_compact_url(parsed: ParseResult) -> str:
     return urlunparse((scheme, netloc, path, params, query, fragment))
 
 
-def format_query_params(parsed: ParseResult) -> list[tuple[str, str]]:
+def parse_query_parameters(parsed: ParseResult) -> list[tuple[str, str]]:
     """Extract query parameters as ``(key, value)`` pairs.
 
     Parameters
@@ -340,8 +347,11 @@ def format_query_params(parsed: ParseResult) -> list[tuple[str, str]]:
     return parse_qsl(parsed.query, keep_blank_values=True)
 
 
-def build_url_view(raw_url: str, parsed: ParseResult) -> UrlView:
-    """Create a :class:`UrlView` from the raw URL and parsed components.
+def create_url_inspection_model(
+        raw_url: str,
+        parsed: ParseResult
+) -> UrlInspectionModel:
+    """Create a :class:`UrlInspectionModel` from the raw URL and parsed components.
 
     Parameters
     ----------
@@ -352,12 +362,12 @@ def build_url_view(raw_url: str, parsed: ParseResult) -> UrlView:
 
     Returns
     -------
-    UrlView
+    UrlInspectionModel
         View model with normalized URL and parsed query parameters.
     """
-    normalized: str = normalized_compact_url(parsed)
-    query_params: list[tuple[str, str]] = format_query_params(parsed)
-    return UrlView(
+    normalized: str = create_normalized_url_string(parsed)
+    query_params: list[tuple[str, str]] = parse_query_parameters(parsed)
+    return UrlInspectionModel(
         raw=raw_url,
         parsed=parsed,
         normalized=normalized,
@@ -365,10 +375,10 @@ def build_url_view(raw_url: str, parsed: ParseResult) -> UrlView:
     )
 
 
-def print_kv(
+def print_key_value(
         key: str,
         value: str | None,
-        colors: AnsiColors,
+        color_scheme: TerminalColorScheme,
         indent: int = 0,
 ) -> None:
     """Print a colored key–value pair.
@@ -379,20 +389,20 @@ def print_kv(
         Label to print (for example ``"scheme"``).
     value : str or None
         Value to print. If ``None``, a dash ``"-"`` is rendered.
-    colors : AnsiColors
+    color_scheme : TerminalColorScheme
         Active color palette.
     indent : int, optional
         Number of leading spaces to insert before the key.
     """
     prefix: str = " " * indent
-    rendered: str = value if value is not None else "-"
-    print(f"{prefix}{colors.cyan}{key}:{colors.reset} {rendered}")
+    rendered_value: str = value if value is not None else "-"
+    print(f"{prefix}{color_scheme.cyan}{key}:{color_scheme.reset} {rendered_value}")
 
 
-def print_opt_str(
+def print_optional_string(
         key: str,
         value: str | None,
-        colors: AnsiColors,
+        color_scheme: TerminalColorScheme,
         indent: int = 0,
 ) -> None:
     """Print a string component only if its value is truthy.
@@ -403,19 +413,19 @@ def print_opt_str(
         Label to print.
     value : str or None
         Value to print if non-empty.
-    colors : AnsiColors
+    color_scheme : TerminalColorScheme
         Color palette.
     indent : int, optional
         Number of leading spaces to insert before the key.
     """
     if value:
-        print_kv(key, value, colors, indent=indent)
+        print_key_value(key, value, color_scheme, indent=indent)
 
 
-def print_opt_int(
+def print_optional_integer(
         key: str,
         value: int | None,
-        colors: AnsiColors,
+        color_scheme: TerminalColorScheme,
         indent: int = 0,
 ) -> None:
     """Print an integer component only if its value is not ``None``.
@@ -426,34 +436,37 @@ def print_opt_int(
         Label to print.
     value : int or None
         Integer value to print if present.
-    colors : AnsiColors
+    color_scheme : TerminalColorScheme
         Color palette.
     indent : int, optional
         Number of leading spaces to insert before the key.
     """
     if value is not None:
-        print_kv(key, str(value), colors, indent=indent)
+        print_key_value(key, str(value), color_scheme, indent=indent)
 
 
-def print_url_info(view: UrlView, colors: AnsiColors) -> None:
-    """Pretty-print information about the given URL view.
+def render_url_report(
+        model: UrlInspectionModel,
+        color_scheme: TerminalColorScheme
+) -> None:
+    """Pretty-print information about the given URL model.
 
     Parameters
     ----------
-    view : UrlView
+    model : UrlInspectionModel
         URL view model to render.
-    colors : AnsiColors
+    color_scheme : TerminalColorScheme
         Color palette used for highlighting keys and sections.
     """
-    parsed: ParseResult = view.parsed
+    parsed: ParseResult = model.parsed
 
     # Single combined normalized + compacted representation
-    print_kv("Normalized", view.normalized, colors)
+    print_key_value("Normalized", model.normalized, color_scheme)
     print()
 
-    print(f"{colors.bold}Components:{colors.reset}")
+    print(f"{color_scheme.bold}Components:{color_scheme.reset}")
     # Scheme is guaranteed non-empty after validation
-    print_kv("scheme", parsed.scheme, colors, indent=2)
+    print_key_value("scheme", parsed.scheme, color_scheme, indent=2)
 
     username: str | None = parsed.username
     password: str | None = parsed.password
@@ -463,24 +476,24 @@ def print_url_info(view: UrlView, colors: AnsiColors) -> None:
     fragment: str = parsed.fragment
     query: str = parsed.query
 
-    print_opt_str("username", username, colors, indent=2)
-    print_opt_str("password", password, colors, indent=2)
-    print_opt_str("hostname", hostname, colors, indent=2)
-    print_opt_int("port", port, colors, indent=2)
-    print_opt_str("path", path, colors, indent=2)
-    print_opt_str("fragment", fragment, colors, indent=2)
+    print_optional_string("username", username, color_scheme, indent=2)
+    print_optional_string("password", password, color_scheme, indent=2)
+    print_optional_string("hostname", hostname, color_scheme, indent=2)
+    print_optional_integer("port", port, color_scheme, indent=2)
+    print_optional_string("path", path, color_scheme, indent=2)
+    print_optional_string("fragment", fragment, color_scheme, indent=2)
 
     if query:
-        print_kv("query", query, colors, indent=2)
-        params: list[tuple[str, str]] = view.query_params
+        print_key_value("query", query, color_scheme, indent=2)
+        params: list[tuple[str, str]] = model.query_params
         if params:
-            print(f"{' ' * 2}{colors.magenta}parameters:{colors.reset}")
+            print(f"{' ' * 2}{color_scheme.magenta}parameters:{color_scheme.reset}")
             for key, value in params:
-                print(f"    - {colors.cyan}{key}{colors.reset} = {value}")
+                print(f"    - {color_scheme.cyan}{key}{color_scheme.reset} = {value}")
     print()
 
 
-def parse_args(argv: Sequence[str]) -> argparse.Namespace:
+def parse_command_line_arguments(argv: Sequence[str]) -> argparse.Namespace:
     """Parse command-line arguments for the URL CLI.
 
     Parameters
@@ -516,7 +529,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def read_url_from_stdin() -> str:
+def read_url_input_from_stdin() -> str:
     """Read a URL string from stdin and strip surrounding whitespace.
 
     Returns
@@ -530,19 +543,19 @@ def read_url_from_stdin() -> str:
         If stdin is a TTY (no piped data) or the resulting string is empty.
     """
     if sys.stdin.isatty():
-        eprint("ERROR: URL must be provided as argument or via stdin.")
+        print_stderr("ERROR: URL must be provided as argument or via stdin.")
         raise SystemExit(EXIT_USAGE)
 
     data: str = sys.stdin.read()
     url: str = data.strip()
     if not url:
-        eprint("ERROR: stdin is empty; no URL to parse.")
+        print_stderr("ERROR: stdin is empty; no URL to parse.")
         raise SystemExit(EXIT_USAGE)
 
     return url
 
 
-def resolve_url_argument(args: argparse.Namespace) -> str:
+def determine_input_url(args: argparse.Namespace) -> str:
     """Determine the URL to use, either from arguments or stdin.
 
     Parameters
@@ -564,7 +577,7 @@ def resolve_url_argument(args: argparse.Namespace) -> str:
     if arg_url is not None and arg_url != "-":
         return arg_url
 
-    return read_url_from_stdin()
+    return read_url_input_from_stdin()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -584,24 +597,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    args: argparse.Namespace = parse_args(argv)
-    url_text: str = resolve_url_argument(args)
+    args: argparse.Namespace = parse_command_line_arguments(argv)
+    url_text: str = determine_input_url(args)
 
     try:
-        parsed: ParseResult = parse_absolute_url(url_text)
+        parsed: ParseResult = validate_and_parse_url(url_text)
     except ValueError as exc:
-        preview: str = preview_for_error(url_text)
-        eprint(
+        preview: str = generate_error_preview(url_text)
+        print_stderr(
             f"ERROR: input is not recognized as a valid absolute URL: "
             f"{preview!r} ({exc})",
         )
         return EXIT_NOT_URL
 
     enable_colors: bool = sys.stdout.isatty() and not args.no_color
-    colors: AnsiColors = AnsiColors(enabled=enable_colors)
+    color_scheme: TerminalColorScheme = TerminalColorScheme(enabled=enable_colors)
 
-    view: UrlView = build_url_view(raw_url=url_text, parsed=parsed)
-    print_url_info(view, colors)
+    model: UrlInspectionModel = create_url_inspection_model(raw_url=url_text, parsed=parsed)
+    render_url_report(model, color_scheme)
 
     return EXIT_OK
 
