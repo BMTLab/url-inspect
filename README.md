@@ -2,11 +2,10 @@
 
 A small, dependency-free CLI tool to inspect and pretty-print components of an absolute URL.
 
-It is designed as a quick helper you can drop into your shell toolkit to:
-
-* normalize URLs in a consistent way,
-* see and debug individual parts (scheme, host, path, query, fragment),
-* inspect parsed query parameters.
+> It is designed as a quick helper you can drop into your shell toolkit to:
+> * normalize URLs in a consistent way,
+> * see and debug individual parts (scheme, host, path, query, fragment),
+> * inspect parsed query parameters.
 
 ---
 
@@ -91,7 +90,9 @@ Assuming the command is available as `url`.
 url "https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4317824011"
 ```
 
-Example output (colors omitted here):
+Example output:
+
+<img width="1352" height="707" alt="image" src="https://github.com/user-attachments/assets/871704c5-4929-416e-8282-7fab6758ca09" />
 
 ```text
 Normalized: https://www.linkedin.com/jobs/collections/recommended?currentJobId=4317824011
