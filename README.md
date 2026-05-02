@@ -195,16 +195,16 @@ When input is rejected, `url` prints a clear error to stderr and exits with a no
 
 Normalization is heuristic but consistent:
 
-1. Scheme is lowercased (e.g. `HTTPS` → `https`).
-2. Hostname is lowercased (e.g. `Example.COM` → `example.com`).
+1. Scheme is lowercased (e.g. `HTTPS` -> `https`).
+2. Hostname is lowercased (e.g. `Example.COM` -> `example.com`).
 3. Default ports are stripped:
-    * `http://example.com:80` → `http://example.com`
-    * `https://example.com:443` → `https://example.com`
+    * `http://example.com:80` -> `http://example.com`
+    * `https://example.com:443` -> `https://example.com`
 4. Empty path becomes `/`.
 5. For **origin-only** URLs (no path, query, or fragment), only `scheme://netloc` is printed:
-    * `https://example.com` → `https://example.com`
+    * `https://example.com` -> `https://example.com`
 6. For non-root paths, a trailing slash is removed in the normalized form (query and fragment are preserved):
-    * `https://example.com/foo/` → `https://example.com/foo`
+    * `https://example.com/foo/` -> `https://example.com/foo`
 
 The raw components (path, query, fragment) are taken from Python's `urllib.parse.urlparse()` without additional decoding.
 
