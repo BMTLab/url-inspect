@@ -154,7 +154,7 @@ url [URL | -] [--no-color]
 
 | Option       | Type       | Default | Description                                       |
 |--------------|------------|---------|---------------------------------------------------|
-| `url`        | positional | —       | Absolute URL to parse, or `-` to read from stdin. |
+| `url`        | positional |:       | Absolute URL to parse, or `-` to read from stdin. |
 | `--no-color` | flag       | `False` | Disable ANSI colors in output.                    |
 
 > [!IMPORTANT]
@@ -292,7 +292,7 @@ curl -I https://example.com \
 This project is licensed under the [MIT License](./LICENSE).
 
 > [!IMPORTANT]
-> This tool parses and prints URLs — it does not validate ownership,security, or reachability of the targets.
+> This tool parses and prints URLs: it does not validate ownership,security, or reachability of the targets.
 > Do not rely solely on its output for security decisions.
 
 ---
