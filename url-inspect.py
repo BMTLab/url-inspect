@@ -189,6 +189,8 @@ def validate_and_parse_url(url: str) -> ParseResult:
     """
     if not url:
         raise ValueError("URL is empty")
+        
+    url = url.strip()
 
     # Single-pass check; short-circuits as soon as whitespace is found
     for char in url:
