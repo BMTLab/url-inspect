@@ -201,8 +201,10 @@ def validate_and_parse_url(url: str) -> ParseResult:
 
     if not parsed.scheme:
         raise ValueError("URL must have a non-empty scheme")
+
     if not parsed.netloc:
         raise ValueError("URL must have a network location (host[:port])")
+
     if parsed.hostname is None or parsed.hostname == "":
         raise ValueError("URL must have a hostname")
 
@@ -235,6 +237,7 @@ def construct_network_location(
         with individual parts omitted if not present.
     """
     user_info: str = ""
+
     if username:
         user_info = username
         if password:
@@ -242,6 +245,7 @@ def construct_network_location(
         user_info += "@"
 
     host_port: str = host
+
     if port is not None:
         host_port = f"{host}:{port}"
 
@@ -280,6 +284,7 @@ def extract_normalized_components(
     port: int | None = parsed.port
 
     default_port: int | None = _DEFAULT_PORTS.get(scheme)
+
     if default_port is not None and port == default_port:
         port = None
 
@@ -369,6 +374,7 @@ def create_url_inspection_model(
     """
     normalized: str = create_normalized_url_string(parsed)
     query_params: list[tuple[str, str]] = parse_query_parameters(parsed)
+
     return UrlInspectionModel(
         raw=raw_url,
         parsed=parsed,
@@ -398,6 +404,7 @@ def print_key_value(
     """
     prefix: str = " " * indent
     rendered_value: str = value if value is not None else "-"
+
     print(f"{prefix}{color_scheme.cyan}{key}:{color_scheme.reset} {rendered_value}")
 
 
@@ -492,6 +499,7 @@ def render_url_report(
             print(f"{' ' * 2}{color_scheme.magenta}parameters:{color_scheme.reset}")
             for key, value in params:
                 print(f"    - {color_scheme.cyan}{key}{color_scheme.reset} = {value}")
+
     print()
 
 
@@ -515,6 +523,7 @@ def parse_command_line_arguments(argv: Sequence[str]) -> argparse.Namespace:
             "If URL is omitted or set to '-', it will be read from stdin."
         ),
     )
+
     parser.add_argument(
         "url",
         nargs="?",
@@ -546,12 +555,15 @@ def read_url_input_from_stdin() -> str:
     """
     if sys.stdin.isatty():
         print_stderr("ERROR: URL must be provided as argument or via stdin.")
+
         raise SystemExit(EXIT_USAGE)
 
     data: str = sys.stdin.read()
     url: str = data.strip()
+
     if not url:
         print_stderr("ERROR: stdin is empty; no URL to parse.")
+
         raise SystemExit(EXIT_USAGE)
 
     return url
@@ -576,6 +588,7 @@ def determine_input_url(args: argparse.Namespace) -> str:
         If neither a URL argument nor valid stdin data is available.
     """
     arg_url: str | None = args.url
+
     if arg_url is not None and arg_url != "-":
         return arg_url
 
@@ -610,6 +623,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"ERROR: input is not recognized as a valid absolute URL: "
             f"{preview!r} ({exc})",
         )
+
         return EXIT_NOT_URL
 
     enable_colors: bool = sys.stdout.isatty() and not args.no_color
