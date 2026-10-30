@@ -42,6 +42,8 @@ Options
 - ``url -``            - read URL from stdin.
 - ``url --no-color``   - disable ANSI colors in output.
 
+Colors go to a terminal only, and a non-empty ``NO_COLOR`` turns them off too.
+
 Exit codes
 ----------
   0  Success.
@@ -52,6 +54,7 @@ Exit codes
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from collections.abc import Sequence
@@ -533,7 +536,7 @@ def parse_command_line_arguments(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument(
         "--no-color",
         action="store_true",
-        help="Disable ANSI colors in output.",
+        help="Disable ANSI colors in output; a non-empty NO_COLOR does the same.",
     )
 
     # argparse accepts any sequence of strings; no need to wrap into list()
@@ -626,7 +629,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         return EXIT_NOT_URL
 
-    enable_colors: bool = sys.stdout.isatty() and not args.no_color
+    # Colors go to a terminal only, and NO_COLOR (https://no-color.org) turns them off,
+    # so that a pipe, a file or an agent gets plain text.
+    is_no_color_set: bool = bool(os.environ.get("NO_COLOR"))
+    enable_colors: bool = sys.stdout.isatty() and not args.no_color and not is_no_color_set
     color_scheme: TerminalColorScheme = TerminalColorScheme(enabled=enable_colors)
 
     model: UrlInspectionModel = create_url_inspection_model(raw_url=url_text, parsed=parsed)

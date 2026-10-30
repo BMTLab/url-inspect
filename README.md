@@ -136,6 +136,7 @@ url --no-color "https://example.com/path?a=1&b=2"
 ```
 
 When stdout is not a TTY (e.g. when you redirect output to a file), the script also disables colors automatically.
+A non-empty `NO_COLOR` turns colors off as well, as [no-color.org](https://no-color.org) asks.
 
 ---
 
