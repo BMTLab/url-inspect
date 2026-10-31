@@ -11,7 +11,7 @@ A small, dependency-free CLI tool to inspect and pretty-print components of an a
 
 ## Features
 
-1. Accepts an absolute URL either as an argument or via stdin
+1. Accepts an absolute URL either as an argument or, with `-`, via stdin
 2. Prints a single **normalized URL** line:
     * scheme/host lowercased,
     * default ports removed (80 for HTTP, 443 for HTTPS),
@@ -108,15 +108,14 @@ Components:
 
 ### URL from stdin
 
-```bash
-printf 'https://example.com/path?a=1&b=2#frag' | url
-```
-
-Or using `-` explicitly:
+Pass `-` in place of the URL:
 
 ```bash
 printf 'https://example.com/path?a=1&b=2#frag' | url -
 ```
+
+Without `-`, `url` never reads stdin, and never from a terminal:
+in cron or CI, stdin may never end, and a read of it would wait forever.
 
 This is useful when:
 
@@ -145,11 +144,12 @@ A non-empty `NO_COLOR` turns colors off as well, as [no-color.org](https://no-co
 Basic syntax:
 
 ```bash
-url [URL | -] [--no-color]
+url [--no-color] (URL | -)
 ```
 
 * If `URL` is provided and not equal to `-`, it is parsed directly.
-* If `URL` is omitted or set to `-`, the tool reads a single URL from stdin.
+* If `URL` is `-`, the tool reads a single URL from stdin.
+* Without `URL`, the tool fails with a usage error and reads nothing.
 
 ### Options
 
@@ -159,8 +159,8 @@ url [URL | -] [--no-color]
 | `--no-color` | flag       | `False` | Disable ANSI colors in output.                    |
 
 > [!IMPORTANT]
-> If you call `url -` or omit the URL argument, **stdin must contain a non-empty string**. 
-> If stdin is a TTY and no data is piped, the tool returns a usage error.
+> If you call `url -`, **stdin must contain a non-empty string**.
+> If stdin is a TTY, the tool returns a usage error rather than wait for typing.
 
 ---
 
@@ -249,7 +249,7 @@ Component rules:
 ## Exit codes
 
 * `0` - success
-* `1` - usage error (for example, no URL provided and stdin is empty)
+* `1` - usage error (for example, no URL given, or `-` with an empty stdin or a TTY)
 * `2` - input is not considered a valid absolute URL
 
 In error cases, a descriptive message is printed to stderr.
@@ -263,7 +263,7 @@ In error cases, a descriptive message is printed to stderr.
 ```bash
 while read -r line; do
   echo "--- $line" >&2
-  printf '%s' "$line" | url --no-color
+  printf '%s' "$line" | url --no-color -
 done < urls.txt
 ```
 
@@ -277,13 +277,13 @@ url "https://example.com/search?q=uuid&lang=en&debug=1"
 
 ```bash
 # Example: inspect a URL produced by some script
-./generate-link.sh | url
+./generate-link.sh | url -
 
 # Example: fetch a Location header and inspect it
 curl -I https://example.com \
   | awk -F': ' '/^Location:/ {print $2}' \
   | tr -d '\r' \
-  | url
+  | url -
 ```
 
 ---

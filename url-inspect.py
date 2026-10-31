@@ -33,14 +33,17 @@ URL as an argument (quoted or without special characters)::
     url "https://user:pass@example.com:443/foo/bar?x=1&y=2#frag"
 
 URL from stdin (safe, shell does not interpret it)::
-    past | url
-    echo 'https://example.com/path?a=1&b=2#frag' | url
+    past | url -
+    echo 'https://example.com/path?a=1&b=2#frag' | url -
 
 Options
 -------
 - ``url URL``          - parse URL from argument.
 - ``url -``            - read URL from stdin.
 - ``url --no-color``   - disable ANSI colors in output.
+
+Without ``-``, the tool never reads stdin, and never from a terminal:
+in cron or CI, stdin may never end, and a read of it would wait forever.
 
 Colors go to a terminal only, and a non-empty ``NO_COLOR`` turns them off too.
 
@@ -523,7 +526,7 @@ def parse_command_line_arguments(argv: Sequence[str]) -> argparse.Namespace:
         prog="url",
         description=(
             "Print out the parts of an absolute URL in a structured way. "
-            "If URL is omitted or set to '-', it will be read from stdin."
+            "Set URL to '-' to read it from stdin, which must not be a terminal."
         ),
     )
 
@@ -531,7 +534,7 @@ def parse_command_line_arguments(argv: Sequence[str]) -> argparse.Namespace:
         "url",
         nargs="?",
         default=None,
-        help="The URL to parse. Use '-' or omit to read from stdin.",
+        help="The URL to parse, or '-' to read it from stdin.",
     )
     parser.add_argument(
         "--no-color",
@@ -557,7 +560,7 @@ def read_url_input_from_stdin() -> str:
         If stdin is a TTY (no piped data) or the resulting string is empty.
     """
     if sys.stdin.isatty():
-        print_stderr("ERROR: URL must be provided as argument or via stdin.")
+        print_stderr("ERROR: stdin is a terminal: pipe the URL into url -.")
 
         raise SystemExit(EXIT_USAGE)
 
@@ -592,7 +595,14 @@ def determine_input_url(args: argparse.Namespace) -> str:
     """
     arg_url: str | None = args.url
 
-    if arg_url is not None and arg_url != "-":
+    # stdin holds the URL only when - asks for it: a stdin that is no terminal
+    # is no proof of input, since cron, CI and agents may give one that never ends.
+    if arg_url is None:
+        print_stderr("ERROR: no URL given: pass it as an argument, or pipe it in and pass -.")
+
+        raise SystemExit(EXIT_USAGE)
+
+    if arg_url != "-":
         return arg_url
 
     return read_url_input_from_stdin()
